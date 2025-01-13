@@ -1,0 +1,137 @@
+---
+title: "Regresión lineal con datos simulados: lonreg"
+subtitle: "en Template Model Builder (TMB)"
+author: "Elmer Quispe Salazar"
+date: "2025-01-12"
+output: pdf_document
+bibliography: ref.bib
+link-citations: true
+header-includes:
+  - \usepackage{setspace}
+  - \onehalfspacing
+  - \usepackage{xcolor}
+  - \usepackage{hyperref}
+---
+
+## \textcolor{blue}{¿QUÉ ES TMB?}
+
+`TMB` es un paquete de R para implementar modelos complejos con efectos aleatorios no lineales (variables latentes). Similar al paquete AD Model Builder (ADMB), permite definir la función de verosimilitud conjunta en `C++` y realizar todas las demás operaciones en R. Ofrece acceso a cálculos paralelos y utiliza  `diferenciación automática (AD)` para obtener la aproximación de Laplace de la verosimilitud marginal[@TMB].
+
+Este documento muestra un modelo de regresión lineal simple utilizando el paquete `TMB`, y se incluye una comparación con el modelo lineal ajustado mediante la función `lm` de R
+
+## \textcolor{blue}{CASO APLICADO}
+
+La relación entre variables morfométricas, como la longitud total $(LT)$ y la anchura del cuerpo $(AB)$, es ampliamente utilizada en estudios para evaluar diferencias intra-poblacionales, además de proporcionar información crucial sobre la variabilidad en los patrones de crecimiento de las especies. En este informe, se ajusta un modelo de regresión lineal simple a datos simulados que representan la relación $LT-AB$ en una especie de pez.
+
+$$AB = a + b \cdot LT + \epsilon$$
+
+## \textcolor{blue}{DATOS SIMULADOS}
+
+Los datos simulados siguen (1) una pendiente ($b$) que representan la relación de incremento de AB con respecto a LT $(b = 2.63)$; (2) un intercepto ($a$) que representa el ancho corporal mínimo en LT $(a = 0.45)$; y (3) una desviación estándar ($sd$) que puede representar la variabilidad individual $(sd = 2.03)$. Los datos simulados corresponden a 50 individuos con longitudes totales distribuidas uniformemente entre 0 y 10 cm.
+
+```{r warning=FALSE, message=FALSE}
+library(pacman)
+p_load(TMB, ggplot2, viridis)
+set.seed(1404) # reproducibilidad
+a <- 0.45; b <- 2.63; sd <- 2.03 # parámetros verdaderos
+# datos simulados
+n <- 50 
+x <- runif(n, min = 0, max = 10)  # longitud total
+noise <- rnorm(n, mean = 0, sd = sd) #variabilidad individual
+y <- a + b * x + noise # ancho corporal
+data_df <- data.frame(x = x, y = y)
+
+ggplot(data_df, aes(x = x, y = y)) +
+  geom_point(size = 3, color = "blue") +
+  labs(title = "Relación entre Longitud Total y Ancho Corporal",
+       x = "Longitud total (cm)",
+       y = "Ancho corporal (cm)") +
+  theme_bw()
+```
+
+## \textcolor{blue}{CONFIGURACIÓN DEL MODELO}
+
+El archivo linreg.cpp es un modelo de regresión lineal desarrollado en C++ utilizando TMB
+
+Compilamos y cargamos un modelo de regresión lineal `linreg.cpp` que incluye los parámetros b (pendiente), a (intercepto) y sd (desviación estándar).  
+
+
+```cpp  
+// Simple linear regression.
+#include <TMB.hpp>
+template<class Type>
+Type objective_function<Type>::operator() ()
+{
+  DATA_VECTOR(Y);
+  DATA_VECTOR(x);
+  PARAMETER(a);
+  PARAMETER(b);
+  PARAMETER(logSigma);
+  ADREPORT(exp(2*logSigma));
+  Type nll = -sum(dnorm(Y, a+b*x, exp(logSigma), true));
+  return nll;
+}
+```
+
+```{r}
+# Compilar y cargar el modelo
+compile("linreg.cpp")
+dyn.load(dynlib("linreg"))
+
+# Crear objeto AD
+data <- list(y = y, x = x)
+parameters <- list(a = 0, b = 0, sd = 1)
+
+obj <- MakeADFun(data = data, parameters = parameters, DLL = "linreg")
+
+# Evaluar función objetivo
+param <- c(1.2, 0.6, 2)  # Valores iniciales
+obj$fn(param)
+obj$gr(param)
+```  
+
+## \textcolor{blue}{OPTIMIZACIÓN}
+Usamos el optimizador nlminb para encontrar los valores que minimizan la función objetivo del modelo:
+
+```{r}
+# Optimización
+opt <- nlminb(start = param, objective = obj$fn, gradient = obj$gr)
+opt
+```
+
+## \textcolor{blue}{RESULTADOS}
+Los valores estimados de los parámetros se comparan con los valores simulados en la siguiente tabla:
+
+```{r}
+# Parámetros estimados
+estimated_a <- opt$par[1]
+estimated_b <- opt$par[2]
+estimated_sd <- opt$par[3]  # Desviación estándar
+
+# Comparación
+results <- data.frame(
+  Parámetro = c("Pendiente (a)", "Intercepto (b)", "Desv. Est. (sd)"),
+  Simulado = c(a, b, sd),
+  Estimado = c(estimated_a, estimated_b, estimated_sd)
+)
+
+knitr::kable(results, caption = "Comparación de parámetros simulados y estimados")
+```
+## \textcolor{blue}{COMPRACIÓN DE LOS RESULTADOS}
+El ajuste del modelo se visualiza mediante la comparación de los datos observados y la línea de regresión ajustada:
+
+```{r}
+
+predicted_y <- estimated_a + estimated_b * x
+
+ggplot(data_df, aes(x = Longitud_Total, y = Ancho_Body)) +
+  geom_point(size = 3, color = "blue") +
+  geom_line(aes(y = predicted_y), color = "red", size = 1.2) +
+  labs(title = "Ajuste del Modelo de Regresión Lineal",
+       subtitle = "Línea ajustada vs. datos observados",
+       x = "Longitud Total (cm)",
+       y = "Ancho Corporal (cm)") +
+  theme_minimal()
+```  
+
+## \textcolor{blue}{REFERENCIA}
