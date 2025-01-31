@@ -1,137 +1,218 @@
 ---
-title: "Regresión lineal con datos simulados: lonreg"
-subtitle: "en Template Model Builder (TMB)"
-author: "Elmer Quispe Salazar"
-date: "2025-01-12"
+title: |
+  ```{=latex}
+  \textcolor{darkblue}{\textbf{lonreg: Regresión lineal}}
+  ```
+subtitle: |
+  ```{=latex}
+  \textcolor{darkblue}{\textbf{con Template Model Builder (TMB)}}
+  ```
+author: "Elmer Quispe-Salazar*"
+email:  "qselmer@gmail.com"
 output: pdf_document
-bibliography: ref.bib
+bibliography: reference.bib
 link-citations: true
+papersize: A4
 header-includes:
   - \usepackage{setspace}
   - \onehalfspacing
   - \usepackage{xcolor}
-  - \usepackage{hyperref}
+   \definecolor{darkblue}{rgb}{0.0, 0.0, 0.55}
+   \definecolor{lightblue}{rgb}{0.678, 0.847, 0.902}
+  - \usepackage{tikz}
+  - \usepackage{caption}
+  - \usepackage{soul}
+  - \captionsetup[figure]{font=small}
+   \usepackage{fancyhdr}
+   \usepackage{hyperref}
+   \usepackage{float}
+   \usepackage[spanish]{babel}
+   \usepackage{helvet}
+   \usepackage{soul}
+   \renewcommand{\familydefault}{\sfdefault}
 ---
+\texttt{\small *Correspondencia. E-mail: qselmer@gmail.com}
 
-## \textcolor{blue}{¿QUÉ ES TMB?}
+## \textcolor{darkblue}{¿Qué es TMB?}
+\fcolorbox{red}{white}{TMB} es una herramienta de programación en `R` y `C++` que permite implementar modelos con efectos aleatorios no lineales (incluyendo variables latentes). Al igual que \fcolorbox{red}{white}{ADMB} (Automatic Differentiation Model Builder), TMB facilita la definición de la función de verosimilitud conjunta directamente en `C++`, aplica diferenciación automática, y emplea la aproximación de Laplace para obtener la verosimilitud marginal (modelos de efectos aleatorios y modelos jerárquicos) \fcolorbox{lightblue}{lightblue}{\cite{tmb2023}}. Además de permitir la paralelización de cálculos, acelerando la estimación de parámetros. 
 
-`TMB` es un paquete de R para implementar modelos complejos con efectos aleatorios no lineales (variables latentes). Similar al paquete AD Model Builder (ADMB), permite definir la función de verosimilitud conjunta en `C++` y realizar todas las demás operaciones en R. Ofrece acceso a cálculos paralelos y utiliza  `diferenciación automática (AD)` para obtener la aproximación de Laplace de la verosimilitud marginal[@TMB].
+## \textcolor{darkblue}{lonreg: Regresión lineal}
+El objetivo de este documento es proporcionar una serie de tutoriales que aborden diversos ejercicios propuestos en el repositorio de  \href{https://github.com/kaskr/adcomp/tree/master/tmb_examples}{\hl{Template Model Builder (TMB)}}, desde el más sencillo, como la regresión lineal simple (`linreg`), hasta el más complejo, como el modelo espacial Poisson GLMM, con una función de correlación que decae exponencialmente (`spatial`). Cada tutorial se enfocará en un ejemplo detallando su implementación y aplicación práctica. Empezamos con una caso práctico donde se compara los resultados obtenidos mediante \fcolorbox{red}{white}{TMB}, \fcolorbox{red}{white}{lm[stats]}, así como los valores verdaderos del modelo.
 
-Este documento muestra un modelo de regresión lineal simple utilizando el paquete `TMB`, y se incluye una comparación con el modelo lineal ajustado mediante la función `lm` de R
+## \textcolor{darkblue}{Caso práctico: discriminación morfométrica de peces pelágicos}
+Las características morfométricas se utilizan para describir la estructura poblacional de los peces. La variación en la forma del cuerpo, inducida por el ambiente, puede proporcionar información sobre la estructura poblacional. En este caso, exploramos cómo la condición corporal promedio de la \fcolorbox{red}{white}{sardina europea} (*Sardina pilchardus*) se relaciona con un eje principal de variación morfométrica derivado de un análisis geométrico \fcolorbox{lightblue}{lightblue}{(Figura ~\ref{fig:fig1})}. 
 
-## \textcolor{blue}{CASO APLICADO}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=210px]{fig.png}
+  \caption{Localización de 15 landmarks en la sardina europea. Tomado de     \fcolorbox{lightblue}{lightblue}{\cite{10.1093/icesjms/fsx186}}}   
+  \label{fig:fig1}
+\end{figure}
 
-La relación entre variables morfométricas, como la longitud total $(LT)$ y la anchura del cuerpo $(AB)$, es ampliamente utilizada en estudios para evaluar diferencias intra-poblacionales, además de proporcionar información crucial sobre la variabilidad en los patrones de crecimiento de las especies. En este informe, se ajusta un modelo de regresión lineal simple a datos simulados que representan la relación $LT-AB$ en una especie de pez.
+Para evaluar la relación entre la condición corporal promedio \fcolorbox{red}{white}{$(CC)$} y los puntajes del primer componente principal canónico \fcolorbox{red}{white}{$(CAP1)$}, ajustamos el siguiente modelo de regresión lineal simple:
 
-$$AB = a + b \cdot LT + \epsilon$$
+\begin{equation}
+Y = \beta_0 + \beta_1 \cdot x + \epsilon
+\end{equation}
 
-## \textcolor{blue}{DATOS SIMULADOS}
+Los datos simulados se basaron \fcolorbox{lightblue}{lightblue}{\cite{10.1093/icesjms/fsx186}}, con los siguientes parámetros: **(1)** Intercepto ($\beta_0$) que representa el valor promedio de $CC$ cuando $CAP1 = 0$. Para este conjunto de datos, el intercepto es \fcolorbox{red}{white}{$ a = 0.8390$}. **(2)** Pendiente ($\beta_1$) que representa la relación de incremento de $CAP1$ con respecto a $CC$. En este caso, la pendiente es \fcolorbox{red}{white}{$(b = -0.7336)$}. **(3)** Desviación estándar ($sd$) que captura la variabilidad individual en los datos, es decir, las fluctuaciones en $CC$ que no están explicadas directamente por $CAP1$. En este caso, la desviación estándar es \fcolorbox{red}{white}{$\sigma = 0.4800$}.
+\newline
 
-Los datos simulados siguen (1) una pendiente ($b$) que representan la relación de incremento de AB con respecto a LT $(b = 2.63)$; (2) un intercepto ($a$) que representa el ancho corporal mínimo en LT $(a = 0.45)$; y (3) una desviación estándar ($sd$) que puede representar la variabilidad individual $(sd = 2.03)$. Los datos simulados corresponden a 50 individuos con longitudes totales distribuidas uniformemente entre 0 y 10 cm.
+Los datos simulados siguieron la relación lineal:
+\begin{equation}
+CC = a + b \cdot CAP1 + \mathcal{N}(0, \sigma^2)
+\end{equation}
 
-```{r warning=FALSE, message=FALSE}
+Para lo cual: 
+```{r warning=FALSE, message=FALSE, fig.width=4, fig.height=3, aling = "center"}
 library(pacman)
 p_load(TMB, ggplot2, viridis)
-set.seed(1404) # reproducibilidad
-a <- 0.45; b <- 2.63; sd <- 2.03 # parámetros verdaderos
+set.seed(140423) # reproducibilidad
 # datos simulados
-n <- 50 
-x <- runif(n, min = 0, max = 10)  # longitud total
-noise <- rnorm(n, mean = 0, sd = sd) #variabilidad individual
-y <- a + b * x + noise # ancho corporal
-data_df <- data.frame(x = x, y = y)
+a     <- 0.8390; b <-  -0.7336; sigma <- 0.05 # parámetros verdaderos
+n     <- 35 # numero áreas muestreadas
+x     <- runif(n, min = -0.12, max = 0.08)  # longitud total
+noise <- rnorm(n, mean = 0, sd = sigma) #variabilidad individual
+Y     <- a + b * x + noise # ancho corporal
 
-ggplot(data_df, aes(x = x, y = y)) +
+data_df <- data.frame(x = x, Y = Y)
+ggplot(data_df, aes(x = x, y = Y)) +
   geom_point(size = 3, color = "blue") +
-  labs(title = "Relación entre Longitud Total y Ancho Corporal",
-       x = "Longitud total (cm)",
-       y = "Ancho corporal (cm)") +
+  labs(title = "Relationship between CC & CAP1") +
+  xlab("CAP1") + ylab("Somatic condition") +
   theme_bw()
 ```
 
-## \textcolor{blue}{CONFIGURACIÓN DEL MODELO}
+## \textcolor{darkblue}{Configuración del modelo}
+El archivo \fcolorbox{red}{white}{linreg.cpp} es un modelo de regresión lineal desarrollado en `C++` utilizando \fcolorbox{red}{white}{TMB}. Este modelo estima tres parámetros: \fcolorbox{red}{white}{$a, b, \sigma$}. La función objetivo es log-verosimilitud negativa \fcolorbox{red}{white}{$(nll)$} de los datos observados, asumiendo errores con una distribución \fcolorbox{red}{white}{$\mathcal{N}(0, \sigma^2)$}.
 
-El archivo linreg.cpp es un modelo de regresión lineal desarrollado en C++ utilizando TMB
-
-Compilamos y cargamos un modelo de regresión lineal `linreg.cpp` que incluye los parámetros b (pendiente), a (intercepto) y sd (desviación estándar).  
-
-
+linreg.cpp: 
 ```cpp  
-// Simple linear regression.
-#include <TMB.hpp>
+// Regresión lineal simple utilizando TMB.
+#include <TMB.hpp> // Inclusión de la biblioteca TMB para modelos estadísticos.
+
 template<class Type>
 Type objective_function<Type>::operator() ()
 {
-  DATA_VECTOR(Y);
-  DATA_VECTOR(x);
-  PARAMETER(a);
-  PARAMETER(b);
-  PARAMETER(logSigma);
-  ADREPORT(exp(2*logSigma));
-  Type nll = -sum(dnorm(Y, a+b*x, exp(logSigma), true));
+  // Definición de los datos de entrada.
+  DATA_VECTOR(Y); // Vector de observaciones de la variable dependiente.
+  DATA_VECTOR(x); // Vector de observaciones de la variable independiente.
+
+  // Definición de los parámetros del modelo.
+  PARAMETER(a); // Intercepto de la regresión.
+  PARAMETER(b); // Pendiente de la regresión.
+  PARAMETER(logSigma); // Logaritmo de la desviación estándar de los errores.
+
+  // Reporte de la varianza.
+  ADREPORT(exp(2*logSigma)); // Reporta la varianza).
+
+  // Cálculo de la función de verosimilitud negativa (NLL).
+  Type nll = -sum(dnorm(Y, a + b * x, exp(logSigma), true)); // Suma de los logaritmos de las probabilidades de las observaciones.
+
+  // Retorno de la función de verosimilitud negativa.
   return nll;
 }
 ```
 
+## \textcolor{darkblue}{Compilar, cargar y MakeADFun}
+Al compilar y cargar el modelo \fcolorbox{red}{white}{linreg.dll}, `MakeADFun`  construye una función objetivo con derivadas en `C++` que incorpora los datos y los parámetros iniciales. Al establecer `obj$hessian <- TRUE`, indicamos que, durante la optimización, también se calculará la matriz Hessiana.
+
 ```{r}
-# Compilar y cargar el modelo
-compile("linreg.cpp")
-dyn.load(dynlib("linreg"))
+compile("tmb/linreg.cpp")  # compilar
+dyn.load(dynlib("tmb/linreg")) # cargar el modelo
 
-# Crear objeto AD
-data <- list(y = y, x = x)
-parameters <- list(a = 0, b = 0, sd = 1)
-
-obj <- MakeADFun(data = data, parameters = parameters, DLL = "linreg")
-
-# Evaluar función objetivo
-param <- c(1.2, 0.6, 2)  # Valores iniciales
-obj$fn(param)
-obj$gr(param)
+data        <- list(Y = Y, x = x) #datos
+parameters  <- list(a = 0, b = 0, logSigma = log(1))  # parametros iniciales
+obj         <- MakeADFun(data = data, parameters = parameters, DLL = "linreg")
+obj$hessian <- TRUE
 ```  
 
-## \textcolor{blue}{OPTIMIZACIÓN}
-Usamos el optimizador nlminb para encontrar los valores que minimizan la función objetivo del modelo:
+## \textcolor{darkblue}{Optimización del modelo}
+Usamos \fcolorbox{red}{white}{optim} para encontrar los valores que minimizan la función objetivo del modelo, y \fcolorbox{red}{white}{lm[stats]} para un ajuste basado en mínimos cuadrados ordinarios, con fines comparativos. 
 
-```{r}
-# Optimización
-opt <- nlminb(start = param, objective = obj$fn, gradient = obj$gr)
-opt
+```{r warning=FALSE, message=FALSE}
+# Optimizacion empleando TMB
+start_time <- Sys.time()
+opt        <- optim(obj$par, obj$fn, obj$gr)
+end_time   <- Sys.time()
+t_tmb      <- end_time - start_time
+(opt)
+```  
+
+```{r warning=FALSE, message=FALSE}
+# Ajuste empleando lm
+start_time <- Sys.time()
+lmx        <- lm(Y ~ x, data = data_df)
+end_time   <- Sys.time()
+t_lm       <- end_time - start_time
+(lmx)
 ```
 
-## \textcolor{blue}{RESULTADOS}
-Los valores estimados de los parámetros se comparan con los valores simulados en la siguiente tabla:
+## \textcolor{darkblue}{Resultados}
+Los valores estimados utilizando `TMB` y `lm` se comparan con los valores verdaderos, mostrando tambiénel tiempo de procesamiento.
 
-```{r}
-# Parámetros estimados
-estimated_a <- opt$par[1]
-estimated_b <- opt$par[2]
-estimated_sd <- opt$par[3]  # Desviación estándar
+```{r warning=FALSE, message=FALSE}
 
-# Comparación
 results <- data.frame(
-  Parámetro = c("Pendiente (a)", "Intercepto (b)", "Desv. Est. (sd)"),
-  Simulado = c(a, b, sd),
-  Estimado = c(estimated_a, estimated_b, estimated_sd)
+  Parámetros = c("Pendiente (b)", "Intercepto (a)", 
+                "Desv. est. (sd)", "Tiempo (s)"),
+  Simulación = c(b, a, sigma, NA),
+  TMB        = c(opt$par[2], opt$par[1], exp(opt$par[3]), t_tmb), 
+  LM         = c(lmx$coefficients[2], lmx$coefficients[1], 
+                 summary(lmx)$sigma, t_lm)
 )
 
-knitr::kable(results, caption = "Comparación de parámetros simulados y estimados")
+knitr::kable(results, caption = "Parámetros estimados con TMB y lm", digits = 3)
+
+(se <- sdreport(obj)) #Std. Error
+
 ```
-## \textcolor{blue}{COMPRACIÓN DE LOS RESULTADOS}
-El ajuste del modelo se visualiza mediante la comparación de los datos observados y la línea de regresión ajustada:
+El ajuste del modelo se visualiza comparando los datos observados con las líneas de regresión ajustadas, además de la distribución de residuos, tanto para el modelo basado en `TMB` como para el modelo `lm`. 
+\newline
 
-```{r}
 
-predicted_y <- estimated_a + estimated_b * x
+```{r warning=FALSE, message=FALSE, aling = "center"}
 
-ggplot(data_df, aes(x = Longitud_Total, y = Ancho_Body)) +
-  geom_point(size = 3, color = "blue") +
-  geom_line(aes(y = predicted_y), color = "red", size = 1.2) +
-  labs(title = "Ajuste del Modelo de Regresión Lineal",
-       subtitle = "Línea ajustada vs. datos observados",
-       x = "Longitud Total (cm)",
-       y = "Ancho Corporal (cm)") +
+lm_y  <- lmx$coefficients[1] + lmx$coefficients[2] * x
+tmb_y <- opt$par[1] + opt$par[2] * x
+
+p1 <- ggplot(data_df, aes(x = x, y = Y)) +
+  geom_point(size = 3, color = "black") +
+  geom_line(aes(y = tmb_y), color = "tomato", linewidth = 1) +
+  labs(title = "TMB") +
+  xlab("CAP1") + ylab("Somatic condition") +
   theme_minimal()
-```  
 
-## \textcolor{blue}{REFERENCIA}
+p2 <- ggplot(data_df, aes(x = x, y = Y)) +
+  geom_point(size = 3, color = "black") +
+  geom_line(aes(y = lm_y), color = "blue", linewidth = 1) +
+  labs(title = "LM") +
+  xlab("CAP1") + ylab("Somatic condition") +
+  theme_minimal()
+
+# Calcular residuos para el modelo TMB
+tmb_r <- data_df$Y - (opt$par[1] + opt$par[2] * data_df$x)
+
+# Crear histograma de residuos
+r1 <- ggplot(data.frame(residuos = tmb_r), aes(x = residuos)) +
+    geom_histogram(binwidth = 0.1, fill = "tomato", color = "black", alpha = 0.7) +
+    labs(title = "", x = "Residuos", y = "Frecuencia") +
+    theme_minimal()
+
+# Calcular residuos para el modelo lm
+lm_r <- residuals(lmx)
+
+# Crear histograma de residuos
+r2 <- ggplot(data.frame(residuos = lm_r), aes(x = residuos)) +
+  geom_histogram(binwidth = 0.1, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "", y = "Frecuencia") +
+  theme_minimal()
+
+cowplot::plot_grid(p1, p2, r1, r2,  labels = c("A", "B", "C", "D"),  ncol = 2)
+
+```  
+Tutorial N°1, basado en linreg.cpp de \href{https://github.com/kaskr/adcomp/blob/master/tmb_examples/linreg.cpp}{\hl{ tmb_examples}}. Puedes descargar el *.Rmd, *.cpp y otros archivos desde el siguiente \href{
+
+
+\bibliographystyle{apalike}
+\bibliography{reference}
