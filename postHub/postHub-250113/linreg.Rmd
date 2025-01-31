@@ -1,7 +1,7 @@
 ---
 title: |
   ```{=latex}
-  \textcolor{darkblue}{\textbf{lonreg: Regresión lineal}}
+  \textcolor{darkblue}{\textbf{Tutorial N° 1. lonreg: Regresión lineal}}
   ```
 subtitle: |
   ```{=latex}
@@ -31,7 +31,7 @@ header-includes:
    \usepackage{soul}
    \renewcommand{\familydefault}{\sfdefault}
 ---
-\texttt{\small *Correspondencia. E-mail: qselmer@gmail.com}
+\texttt{*Correspondencia. E-mail: qselmer@gmail.com}
 
 ## \textcolor{darkblue}{¿Qué es TMB?}
 \fcolorbox{red}{white}{TMB} es una herramienta de programación en `R` y `C++` que permite implementar modelos con efectos aleatorios no lineales (incluyendo variables latentes). Al igual que \fcolorbox{red}{white}{ADMB} (Automatic Differentiation Model Builder), TMB facilita la definición de la función de verosimilitud conjunta directamente en `C++`, aplica diferenciación automática, y emplea la aproximación de Laplace para obtener la verosimilitud marginal (modelos de efectos aleatorios y modelos jerárquicos) \fcolorbox{lightblue}{lightblue}{\cite{tmb2023}}. Además de permitir la paralelización de cálculos, acelerando la estimación de parámetros. 
@@ -107,7 +107,7 @@ Type objective_function<Type>::operator() ()
   ADREPORT(exp(2*logSigma)); // Reporta la varianza).
 
   // Cálculo de la función de verosimilitud negativa (NLL).
-  Type nll = -sum(dnorm(Y, a + b * x, exp(logSigma), true)); // Suma de los logaritmos de las probabilidades de las observaciones.
+  Type nll = -sum(dnorm(Y, a + b * x, exp(logSigma), true)); 
 
   // Retorno de la función de verosimilitud negativa.
   return nll;
@@ -149,7 +149,7 @@ t_lm       <- end_time - start_time
 ```
 
 ## \textcolor{darkblue}{Resultados}
-Los valores estimados utilizando `TMB` y `lm` se comparan con los valores verdaderos, mostrando tambiénel tiempo de procesamiento.
+Los valores estimados utilizando `TMB` y `lm` se comparan con los valores verdaderos, mostrando también el tiempo de procesamiento.
 
 ```{r warning=FALSE, message=FALSE}
 
@@ -211,7 +211,7 @@ r2 <- ggplot(data.frame(residuos = lm_r), aes(x = residuos)) +
 cowplot::plot_grid(p1, p2, r1, r2,  labels = c("A", "B", "C", "D"),  ncol = 2)
 
 ```  
-Tutorial N°1, basado en linreg.cpp de \href{https://github.com/kaskr/adcomp/blob/master/tmb_examples/linreg.cpp}{\hl{ tmb_examples}}. Puedes descargar el *.Rmd, *.cpp y otros archivos desde el siguiente \href{
+**Tutorial N° 1.** Puedes descargar el `.Rmd, .cpp y otros archivos` desde el siguiente \href{https://github.com/qselmer/.me_content/tree/main/postHub/postHub-250113}{\hl{enlace}}.
 
 
 \bibliographystyle{apalike}
